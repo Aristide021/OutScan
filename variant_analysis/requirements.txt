@@ -1,0 +1,12 @@
+# Essential AWS and Core Libraries (for advanced clustering engine)
+boto3==1.34.34
+botocore==1.34.34
+
+# Date/Time utilities  
+python-dateutil==2.8.2
+
+# JSON handling
+simplejson==3.19.2
+
+# Note: Advanced Ward linkage clustering engine uses pure Python
+# No numpy/scipy dependencies needed - avoids Lambda packaging issues 

@@ -1,0 +1,12 @@
+# Essential AWS and Core Libraries (for dependency-free S3 processor)
+boto3==1.34.34
+botocore==1.34.34
+
+# Date/Time utilities
+python-dateutil==2.8.2
+
+# JSON handling
+simplejson==3.19.2
+
+# Note: BioPython and numpy removed - using pure Python FASTA parser and genetic code
+# This avoids Lambda packaging issues while maintaining full genomic analysis capability 

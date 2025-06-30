@@ -409,7 +409,7 @@ OutScan/
 
 ### System Components
 - End-to-end genomic surveillance pipeline deployed on AWS
-- 6 Lambda functions handling data processing, analysis, and alerting
+- 7 Lambda functions handling data processing, analysis, and alerting
 - 3 DynamoDB tables for variant clusters, mutations, and alert history
 - Step Functions workflow orchestrating the analysis pipeline
 - Interactive web dashboard with live data updates

@@ -21,6 +21,29 @@ wheels/
 *.egg
 MANIFEST
 
+# Python Dependencies (installed locally)
+*.dist-info/
+boto3/
+botocore/
+requests/
+jinja2/
+dateutil/
+jmespath/
+urllib3/
+certifi/
+charset_normalizer/
+idna/
+markupsafe/
+six.py
+bin/
+
+# Deployment Packages
+*.zip
+*_fix.zip
+*_fix2.zip
+*_with_deps.zip
+*_deployment.zip
+
 # Virtual Environments
 venv/
 env/

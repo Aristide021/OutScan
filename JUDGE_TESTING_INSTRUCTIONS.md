@@ -12,7 +12,7 @@ OutScan is a serverless genomic surveillance platform deployed on AWS that demon
 
 ### Deployed AWS Infrastructure
 - **API Gateway:** REST endpoints for data access
-- **Lambda Functions:** 6 functions handling genomic processing, clustering, and AI analysis
+- **Lambda Functions:** 7 functions handling genomic processing, clustering, and AI analysis
 - **DynamoDB:** 3 tables storing variant clusters, mutation libraries, and alert history
 - **Step Functions:** Orchestration workflow for analysis pipeline
 - **S3 Buckets:** Genomic data storage and static web hosting

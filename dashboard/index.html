@@ -447,7 +447,7 @@
 
         async function loadData() {
             try {
-                const response = await fetch('https://l5d9m5sa8e.execute-api.us-east-1.amazonaws.com/prod/variants');
+                const response = await fetch('https://dq31ugryw9.execute-api.us-east-1.amazonaws.com/prod/variants');
                 const data = await response.json();
                 
                 // Update metrics
@@ -513,12 +513,17 @@
             }
             
             const variantCtx = document.getElementById('variantChart').getContext('2d');
+            
+            // Use the first 5 variants and calculate percentages based on sequence counts
+            const topVariants = data.variants.slice(0, 5);
+            const totalSequences = topVariants.reduce((sum, v) => sum + v.sequences, 0);
+            
             variantChart = new Chart(variantCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: data.variant_prevalence.map(v => v.name),
+                    labels: topVariants.map(v => v.name),
                     datasets: [{
-                        data: data.variant_prevalence.map(v => v.percentage),
+                        data: topVariants.map(v => ((v.sequences / totalSequences) * 100).toFixed(1)),
                         backgroundColor: [
                             '#4f46e5',
                             '#10b981',
@@ -534,6 +539,13 @@
                     plugins: {
                         legend: {
                             position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.formattedValue + '%';
+                                }
+                            }
                         }
                     }
                 }

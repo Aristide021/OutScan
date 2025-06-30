@@ -76,7 +76,7 @@ cdk deploy OutScanStack
 
 Expected resources created:
 - 3 S3 buckets (genomic-data, analysis-results, public-data)
-- 3 DynamoDB tables (VariantClusters, MutationLibrary, AlertHistory)
+- 3 DynamoDB tables (OutScan-SequenceTable, OutScan-VariantTable, OutScan-AlertTable)
 - 5 Lambda functions
 - 1 Step Functions state machine
 - 4 SNS topics
@@ -299,15 +299,15 @@ aws cloudtrail create-trail \
 ```bash
 # Enable DynamoDB Point-in-Time Recovery
 aws dynamodb update-continuous-backups \
-  --table-name VariantClusters \
+  --table-name OutScan-SequenceTable \
   --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true
 
 aws dynamodb update-continuous-backups \
-  --table-name MutationLibrary \
+  --table-name OutScan-VariantTable \
   --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true
 
 aws dynamodb update-continuous-backups \
-  --table-name AlertHistory \
+  --table-name OutScan-AlertTable \
   --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true
 ```
 
@@ -379,7 +379,7 @@ aws bedrock list-foundation-models --region us-east-1
 **4. DynamoDB Throttling**
 ```bash
 # Check table metrics
-aws dynamodb describe-table --table-name VariantClusters
+aws dynamodb describe-table --table-name OutScan-VariantTable
 ```
 
 ### Performance Optimization

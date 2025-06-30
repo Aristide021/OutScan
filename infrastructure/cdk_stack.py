@@ -37,14 +37,14 @@ class OutScanStack(Stack):
         # Create DynamoDB tables
         self.create_database_layer()
         
+        # Create SNS topics for alerts (before compute layer to provide env vars)
+        self.create_notification_layer()
+        
         # Create Lambda functions
         self.create_compute_layer()
         
         # Create Step Functions workflow
         self.create_orchestration_layer()
-        
-        # Create SNS topics for alerts
-        self.create_notification_layer()
         
         # Create API Gateway
         self.create_api_layer()
@@ -108,45 +108,36 @@ class OutScanStack(Stack):
     def create_database_layer(self):
         """Create DynamoDB tables for variant tracking"""
         
-        # Variant clusters table
-        self.variant_table = dynamodb.Table(
-            self, "VariantClustersTable",
-            table_name="VariantClusters",
+        # Sequence storage table
+        self.sequence_table = dynamodb.Table(
+            self, "SequenceTable",
+            table_name="OutScan-SequenceTable",
             partition_key=dynamodb.Attribute(
-                name="SequenceID",
-                type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="CollectionDate", 
-                type=dynamodb.AttributeType.STRING
-            ),
-            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.RETAIN,
-
-        )
-        
-        # Mutation library table
-        self.mutation_table = dynamodb.Table(
-            self, "MutationLibraryTable",
-            table_name="MutationLibrary",
-            partition_key=dynamodb.Attribute(
-                name="MutationID",
+                name="sequence_id",
                 type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.RETAIN
         )
         
-        # Alert history table
-        self.alert_table = dynamodb.Table(
-            self, "AlertHistoryTable",
-            table_name="AlertHistory",
+        # Variant detection table
+        self.variant_table = dynamodb.Table(
+            self, "VariantTable",
+            table_name="OutScan-VariantTable",
             partition_key=dynamodb.Attribute(
-                name="AlertID",
+                name="variant_id",
                 type=dynamodb.AttributeType.STRING
             ),
-            sort_key=dynamodb.Attribute(
-                name="GeneratedTimestamp",
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN
+        )
+        
+        # Alert storage table
+        self.alert_table = dynamodb.Table(
+            self, "AlertTable",
+            table_name="OutScan-AlertTable",
+            partition_key=dynamodb.Attribute(
+                name="alert_id",
                 type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -190,13 +181,15 @@ class OutScanStack(Stack):
                                 "dynamodb:PutItem",
                                 "dynamodb:UpdateItem",
                                 "dynamodb:Query",
-                                "dynamodb:Scan"
+                                "dynamodb:Scan",
+                                "dynamodb:BatchGetItem",
+                                "dynamodb:BatchWriteItem"
                             ],
                             resources=[
+                                self.sequence_table.table_arn,
+                                self.sequence_table.table_arn + "/*",
                                 self.variant_table.table_arn,
                                 self.variant_table.table_arn + "/*",
-                                self.mutation_table.table_arn,
-                                self.mutation_table.table_arn + "/*",
                                 self.alert_table.table_arn,
                                 self.alert_table.table_arn + "/*"
                             ]
@@ -241,36 +234,41 @@ class OutScanStack(Stack):
             }
         )
         
-        # S3 Trigger Processor Lambda
+        # S3 Trigger Processor Lambda (dependency-free with custom FASTA parser)
         self.s3_processor_lambda = lambda_.Function(
             self, "S3ProcessorFunction", 
             runtime=lambda_.Runtime.PYTHON_3_9,
             handler="s3_trigger_processor.lambda_handler",
-            code=lambda_.Code.from_asset("../genomic_ingestion"),
+            code=lambda_.Code.from_asset("../genomic_ingestion", 
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install --no-cache-dir -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             timeout=Duration.minutes(15),
             memory_size=2048,
             role=lambda_role,
             environment={
-                "VARIANT_CLUSTERS_TABLE": self.variant_table.table_name,
-                "MUTATION_LIBRARY_TABLE": self.mutation_table.table_name
+                "GENOMIC_DATA_BUCKET": self.genomic_bucket.bucket_name
             }
         )
         
-        # Variant Clustering Engine Lambda
+        # Variant Clustering Engine Lambda (advanced Ward linkage clustering)
         self.clustering_lambda = lambda_.Function(
             self, "ClusteringEngineFunction",
             runtime=lambda_.Runtime.PYTHON_3_9,
-            handler="clustering_engine.lambda_handler",
+            handler="clustering_engine_advanced.lambda_handler",
             code=lambda_.Code.from_asset("../variant_analysis"),
-            timeout=Duration.minutes(15),
-            memory_size=3008,  # High memory for clustering operations
+            timeout=Duration.minutes(15),  # Lambda maximum timeout
+            memory_size=1024,  # Increased memory for advanced algorithms
             role=lambda_role,
             environment={
-                "VARIANT_CLUSTERS_TABLE": self.variant_table.table_name,
-                "MUTATION_LIBRARY_TABLE": self.mutation_table.table_name,
-                "MIN_CLUSTER_SIZE": "10",
-                "MIN_SAMPLES": "5",
-                "CLUSTER_SELECTION_EPSILON": "0.1"
+                "MIN_CLUSTER_SIZE": "5",
+                "CLUSTER_SELECTION_EPSILON": "0.7",
+                "MAX_CLUSTERS": "20"
             }
         )
         
@@ -307,7 +305,14 @@ class OutScanStack(Stack):
             code=lambda_.Code.from_asset("../alerting"),
             timeout=Duration.minutes(5),
             memory_size=512,
-            role=lambda_role
+            role=lambda_role,
+            environment={
+                "WHO_ALERTS_TOPIC_ARN": self.who_alerts_topic.topic_arn,
+                "HEALTH_AUTHORITIES_TOPIC_ARN": self.health_authorities_topic.topic_arn,
+                "RESEARCH_TOPIC_ARN": self.research_topic.topic_arn,
+                "PUBLIC_TOPIC_ARN": self.public_topic.topic_arn,
+                "ALERT_TABLE_NAME": self.alert_table.table_name
+            }
         )
         
         # S3 trigger for genomic processing
@@ -320,35 +325,90 @@ class OutScanStack(Stack):
     def create_orchestration_layer(self):
         """Create Step Functions for variant analysis workflow"""
         
-        # Define workflow steps
+        # Define workflow steps with error handling
+        workflow_failed = sfn.Fail(
+            self, "WorkflowFailed",
+            comment="Genomic analysis workflow failed"
+        )
+        
         extract_mutations = tasks.LambdaInvoke(
             self, "ExtractMutations",
             lambda_function=self.s3_processor_lambda,
+            output_path="$.Payload",
             result_path="$.mutations"
+        ).add_catch(
+            errors=["States.TaskFailed", "States.Timeout"],
+            next=workflow_failed,
+            result_path="$.error"
+        ).add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=2,
+            backoff_rate=2.0
         )
         
         # Clustering analysis step
         clustering_analysis = tasks.LambdaInvoke(
             self, "ClusteringAnalysis",
             lambda_function=self.clustering_lambda,
+            output_path="$.Payload",
             result_path="$.clustering_results"
+        ).add_catch(
+            errors=["States.TaskFailed", "States.Timeout"],
+            next=workflow_failed,
+            result_path="$.error"
+        ).add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(60),
+            max_attempts=2,
+            backoff_rate=2.0
         )
         
         bedrock_analysis = tasks.LambdaInvoke(
             self, "BedrockAnalysis", 
             lambda_function=self.bedrock_lambda,
+            output_path="$.Payload",
             result_path="$.risk_assessment"
+        ).add_catch(
+            errors=["States.TaskFailed", "States.Timeout"],
+            next=workflow_failed,
+            result_path="$.error"
+        ).add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0
         )
         
         generate_who_report = tasks.LambdaInvoke(
             self, "GenerateWHOReport",
             lambda_function=self.who_report_lambda,
+            output_path="$.Payload",
             result_path="$.who_report"
+        ).add_catch(
+            errors=["States.TaskFailed", "States.Timeout"],
+            next=workflow_failed,
+            result_path="$.error"
+        ).add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=2,
+            backoff_rate=2.0
         )
         
         dispatch_alerts = tasks.LambdaInvoke(
             self, "DispatchAlerts",
-            lambda_function=self.sns_dispatcher_lambda
+            lambda_function=self.sns_dispatcher_lambda,
+            output_path="$.Payload"
+        ).add_catch(
+            errors=["States.TaskFailed", "States.Timeout"],
+            next=workflow_failed,
+            result_path="$.error"
+        ).add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0
         )
         
         # Risk assessment choice
@@ -359,10 +419,10 @@ class OutScanStack(Stack):
         low_risk_path = sfn.Succeed(self, "LowRiskComplete")
         
         risk_choice.when(
-            sfn.Condition.number_greater_than("$.risk_assessment.composite_risk_score", 0.7),
+            sfn.Condition.number_greater_than("$.risk_assessment.Payload.composite_risk_score", 0.7),
             high_risk_path
         ).when(
-            sfn.Condition.number_greater_than("$.risk_assessment.composite_risk_score", 0.4),
+            sfn.Condition.number_greater_than("$.risk_assessment.Payload.composite_risk_score", 0.4),
             medium_risk_path  
         ).otherwise(low_risk_path)
         
@@ -453,7 +513,7 @@ class OutScanStack(Stack):
             code=lambda_.Code.from_asset("../api"),
             timeout=Duration.seconds(30),
             environment={
-                "VARIANT_CLUSTERS_TABLE": self.variant_table.table_name
+                "VARIANT_TABLE": self.variant_table.table_name
             }
         )
         

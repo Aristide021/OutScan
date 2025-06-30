@@ -5,6 +5,7 @@ Multi-channel notification system for variant alerts
 import json
 import boto3
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional
 from enum import Enum
@@ -26,15 +27,24 @@ class SNSAlertDispatcher:
     def __init__(self):
         self.sns_client = boto3.client('sns')
         self.dynamodb = boto3.resource('dynamodb')
-        self.alert_table = self.dynamodb.Table('AlertHistory')
         
-        # SNS Topic ARNs (would be configured via environment)
+        # Use environment variable for alert table name
+        alert_table_name = os.environ.get('ALERT_TABLE_NAME', 'OutScan-AlertTable')
+        self.alert_table = self.dynamodb.Table(alert_table_name)
+        
+        # SNS Topic ARNs from environment variables
         self.topics = {
-            'WHO_ALERTS': 'arn:aws:sns:us-east-1:123456789012:who-alerts',
-            'HEALTH_AUTHORITIES': 'arn:aws:sns:us-east-1:123456789012:health-authorities',
-            'RESEARCH_COMMUNITY': 'arn:aws:sns:us-east-1:123456789012:research-alerts',
-            'PUBLIC_DASHBOARD': 'arn:aws:sns:us-east-1:123456789012:public-alerts'
+            'WHO_ALERTS': os.environ.get('WHO_ALERTS_TOPIC_ARN', ''),
+            'HEALTH_AUTHORITIES': os.environ.get('HEALTH_AUTHORITIES_TOPIC_ARN', ''),
+            'RESEARCH_COMMUNITY': os.environ.get('RESEARCH_TOPIC_ARN', ''),
+            'PUBLIC_DASHBOARD': os.environ.get('PUBLIC_TOPIC_ARN', '')
         }
+        
+        # Validate that all required topic ARNs are provided
+        missing_topics = [name for name, arn in self.topics.items() if not arn]
+        if missing_topics:
+            logger.warning(f"Missing SNS topic ARNs for: {missing_topics}")
+            raise ValueError(f"Required SNS topic ARNs not configured: {missing_topics}")
     
     def dispatch_variant_alert(self, alert_data: Dict) -> Dict:
         """
@@ -272,32 +282,81 @@ def lambda_handler(event, context):
     try:
         dispatcher = SNSAlertDispatcher()
         
-        # Extract alert data from event
+        # Extract alert data from event - handle both direct and Step Functions input
         alert_data = event.get('alert_data', {})
         
+        # If no direct alert_data, try to construct from Step Functions workflow data
         if not alert_data:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'No alert data provided'})
-            }
+            # Check if this is Step Functions workflow data
+            risk_assessment = event.get('risk_assessment', {})
+            if isinstance(risk_assessment, dict) and 'Payload' in risk_assessment:
+                # Extract from Step Functions response structure
+                risk_payload = risk_assessment['Payload']
+                
+                # Construct alert data from workflow results
+                alert_data = {
+                    'alert_level': risk_payload.get('alert_threshold', 'MONITORING'),
+                    'variant_info': {
+                        'variant_id': f"VAR-{datetime.now().strftime('%Y%m%d')}-{hash(str(risk_payload)) % 1000:03d}",
+                        'key_mutations': [m.get('mutation', 'Unknown') for m in risk_payload.get('mutation_analysis', {}).get('individual_mutations', [])],
+                        'countries_detected': ['Global'],  # Default for workflow
+                        'growth_rate': risk_payload.get('growth_risk', 0.0) * 100,  # Convert to percentage
+                        'first_detection': datetime.now().isoformat()
+                    },
+                    'risk_assessment': {
+                        'composite_risk_score': risk_payload.get('composite_risk_score', 0.5),
+                        'mutation_analysis': risk_payload.get('mutation_analysis', {})
+                    }
+                }
+                
+                logger.info(f"Constructed alert data from workflow: {alert_data['alert_level']}")
+        
+        if not alert_data:
+            error_data = {'error': 'No alert data provided'}
+            
+            # Check calling context
+            if hasattr(context, 'aws_request_id') and not event.get('httpMethod'):
+                # Step Functions call - raise error
+                raise ValueError('No alert data provided')
+            else:
+                # API Gateway or direct call
+                return {
+                    'statusCode': 400,
+                    'body': json.dumps(error_data)
+                }
         
         # Dispatch alert
         result = dispatcher.dispatch_variant_alert(alert_data)
         
-        return {
-            'statusCode': 200 if result['status'] == 'SUCCESS' else 500,
-            'body': json.dumps({
-                'message': 'Alert dispatch completed',
-                'result': result
-            })
+        result_data = {
+            'message': 'Alert dispatch completed',
+            'result': result
         }
+        
+        # Check calling context
+        if hasattr(context, 'aws_request_id') and not event.get('httpMethod'):
+            # Step Functions call - return data directly
+            return result_data
+        else:
+            # API Gateway or direct call - return HTTP response
+            return {
+                'statusCode': 200 if result['status'] == 'SUCCESS' else 500,
+                'body': json.dumps(result_data)
+            }
         
     except Exception as e:
         logger.error(f"Lambda execution failed: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)})
-        }
+        
+        # Check calling context for error handling
+        if hasattr(context, 'aws_request_id') and not event.get('httpMethod'):
+            # Step Functions call - raise error
+            raise e
+        else:
+            # API Gateway or direct call - return HTTP error
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': str(e)})
+            }
 
 if __name__ == "__main__":
     # For local testing
