@@ -1,0 +1,62 @@
+sequenceDiagram
+    participant U as 👤 User
+    participant D as 🌐 Dashboard (S3)
+    participant AG as 🚪 API Gateway
+    participant LA as ⚡ Lambda (API Handler)
+    participant S3 as 🪣 S3 (Genomic Data)
+    participant LP as ⚡ Lambda (S3 Processor)
+    participant SF as 🎭 Step Functions
+    participant LC as 🔍 Lambda (Clustering)
+    participant LB as 🤖 Lambda (Bedrock)
+    participant DB as 💾 DynamoDB
+    participant LR as 📋 Lambda (Reporting)
+    participant SNS as 📢 SNS
+
+    Note over U,D: User accesses dashboard
+    U->>+D: 1. Load dashboard
+    D->>+AG: 2. GET /variants/summary
+    AG->>+LA: 3. Invoke API handler
+    LA->>+DB: 4. Query variant tables
+    DB-->>-LA: 5. Return aggregated data
+    LA-->>-AG: 6. JSON response
+    AG-->>-D: 7. Variant metrics
+    D-->>-U: 8. Display dashboard
+
+    Note over U,S3: New genomic sequence upload
+    U->>+S3: 9. PUT genomic_sample.fasta
+    S3->>+LP: 10. Trigger on ObjectCreated event
+
+    LP->>+SF: 11. StartExecution(VariantAnalysisWorkflow)
+    Note over LP: Extract metadata & validate
+    LP-->>-S3: 12. Processing initiated
+
+    Note over SF: Orchestrated analysis pipeline
+    SF->>+LC: 13. Invoke clustering analysis
+    LC->>LC: 14. Extract mutations & features
+    LC->>LC: 15. Run HDBSCAN clustering
+    LC->>+DB: 16. Store cluster results
+    DB-->>-LC: 17. Confirm write
+    LC-->>-SF: 18. Clustering complete
+
+    SF->>+LB: 19. Invoke Bedrock risk analysis
+    LB->>LB: 20. Prepare context for LLM
+    LB->>LB: 21. Call Bedrock API
+    LB->>+DB: 22. Store risk assessment
+    DB-->>-LB: 23. Confirm write
+    LB-->>-SF: 24. Risk analysis complete
+
+    alt High Risk Detected
+        SF->>+LR: 25. Generate WHO report
+        LR->>+DB: 26. Query related variants
+        DB-->>-LR: 27. Historical data
+        LR->>LR: 28. Generate detailed report
+        LR-->>-SF: 29. Report ready
+        
+        SF->>SNS: 30. Publish high-priority alert
+        SNS-->>U: 31. Emergency notification
+    else Medium/Low Risk
+        SF->>SF: 32. Log results & complete
+    end
+
+    Note over SF: Workflow completed
+    SF-->>LP: 33. Execution status 

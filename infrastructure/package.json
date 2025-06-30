@@ -1,0 +1,17 @@
+{
+  "name": "outscan-infrastructure",
+  "version": "1.0.0",
+  "description": "OutScan CDK Infrastructure",
+  "main": "app.py",
+  "scripts": {
+    "build": "echo 'No build required'",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "synth": "cdk synth"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.114.1"
+  },
+  "author": "OutScan Team",
+  "license": "MIT"
+} 

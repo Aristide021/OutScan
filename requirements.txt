@@ -1,0 +1,103 @@
+# AWS SDK and Core Libraries
+boto3==1.34.34
+botocore==1.34.34
+awscli==1.32.34
+
+# Data Processing and Analysis
+pandas==2.1.4
+numpy==1.24.3
+scipy==1.11.4
+
+# Machine Learning and Clustering
+scikit-learn==1.3.2
+hdbscan==0.8.33
+
+# Bioinformatics Libraries
+biopython==1.81
+pysam==0.22.0
+
+# Visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+
+# Web Requests and APIs
+requests==2.31.0
+aiohttp==3.9.1
+urllib3==1.26.18
+
+# Async and Concurrency
+asyncio==3.4.3
+concurrent-futures==3.1.1
+
+# Template and Report Generation
+jinja2==3.1.2
+markdown==3.5.1
+
+# JSON and Data Serialization
+jsonlines==4.0.0
+simplejson==3.19.2
+
+# Development and Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+moto==4.2.14
+localstack==3.0.2
+
+# Jupyter Notebook Support
+jupyter==1.0.0
+ipykernel==6.27.1
+notebook==7.0.6
+
+# AWS CDK for Infrastructure
+aws-cdk-lib==2.114.1
+constructs==10.3.0
+
+# Logging and Monitoring
+structlog==23.2.0
+python-json-logger==2.0.7
+
+# Date and Time Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Configuration Management
+python-dotenv==1.0.0
+pyyaml==6.0.1
+
+# Data Validation
+pydantic==2.5.1
+jsonschema==4.20.0
+
+# Performance and Optimization
+numba==0.58.1
+cython==3.0.7
+
+# Database Connectors (for future extensions)
+psycopg2-binary==2.9.9
+pymongo==4.6.0
+
+# HTTP Client Libraries
+httpx==0.25.2
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Security and Encryption
+cryptography==41.0.8
+pycryptodome==3.19.0
+
+# Genomic Data Formats
+pyfaidx==0.7.2.2
+pyvcf3==1.0.3
+
+# Statistical Analysis
+statsmodels==0.14.0
+pingouin==0.5.4
+
+# Network and Communication
+websockets==12.0
+paramiko==3.4.0
+
+# Environment and System
+psutil==5.9.6
+python-decouple==3.8 

@@ -1,0 +1,94 @@
+flowchart TD
+    %% External
+    subgraph external ["🌍 External/Users"]
+        A[👥 Public / Researchers]
+        B[🏢 Genomic Data Partners]
+    end
+
+    %% Ingestion Layer
+    subgraph ingestion ["📥 Ingestion Layer"]
+        C["🚪 API Gateway<br/><i>/variants, /genomic</i>"]
+        D["🪣 S3 Bucket<br/><i>outscan-genomic-data</i>"]
+    end
+
+    %% Processing Pipeline
+    subgraph processing ["⚙️ Processing & Analysis Pipeline"]
+        E["⚡ Lambda: S3 Processor<br/><i>s3_trigger_processor.py</i>"]
+        F["🎭 AWS Step Functions<br/><i>VariantAnalysisWorkflow</i>"]
+        G["🔍 Lambda: Clustering Engine<br/><i>clustering_engine.py</i>"]
+        H["🤖 Lambda: Bedrock Analysis<br/><i>bedrock_inference.py</i>"]
+        Bedrock["🧠 Amazon Bedrock<br/><i>Claude 3 Sonnet</i>"]
+    end
+
+    %% Data Layer
+    subgraph storage ["💾 Data & Storage Tier"]
+        I["🗂️ DynamoDB<br/>VariantClusters"]
+        J["📚 DynamoDB<br/>MutationLibrary"]
+        K["📊 DynamoDB<br/>AlertHistory"]
+    end
+
+    %% Alerting
+    subgraph alerting ["🚨 Alerting & Reporting"]
+        L["📋 Lambda: WHO Report Gen<br/><i>who_report_generator.py</i>"]
+        M["📡 Lambda: SNS Dispatcher<br/><i>sns_dispatcher.py</i>"]
+        N["📢 SNS Topic: WHO"]
+        O["🏥 SNS Topic: Health Authorities"]
+        P["🔬 SNS Topic: Research"]
+    end
+
+    %% Presentation & Monitoring
+    subgraph presentation ["📊 Presentation & Monitoring"]
+        Q["🌐 Public Dashboard<br/><i>S3 Website</i>"]
+        R["📈 CloudWatch Dashboard"]
+        S["⏰ EventBridge<br/><i>rate(6 hours)</i>"]
+        apiLambda["🔌 Lambda: API Handler<br/><i>api_handler.py</i>"]
+    end
+
+    %% Connections
+    B --> D
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    H <--> Bedrock
+    
+    G --> I
+    G --> J
+    H --> I
+    H --> J
+    
+    F --> L
+    F --> M
+    L --> M
+    M --> N
+    M --> O
+    M --> P
+
+    A --> C
+    C --> apiLambda
+    apiLambda --> I
+
+    S --> F
+
+    %% Monitoring connections (dotted)
+    E -.-> R
+    G -.-> R
+    H -.-> R
+    L -.-> R
+    M -.-> R
+    I -.-> R
+    J -.-> R
+    K -.-> R
+
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef lambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef storage fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#fff
+    classDef monitoring fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#fff
+    classDef external fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
+    
+    class C,D,F,Bedrock,S aws
+    class E,G,H,L,M,apiLambda lambda
+    class I,J,K,Q storage
+    class R monitoring
+    class A,B external

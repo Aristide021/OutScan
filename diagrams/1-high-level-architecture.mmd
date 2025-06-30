@@ -1,0 +1,62 @@
+flowchart TD
+    %% Ingestion
+    subgraph ingestion ["🔄 1. Ingestion"]
+        A["📊 Genomic Data Sources<br/><i>GISAID, S3 Uploads</i>"] 
+        B["⚡ Event-Driven Intake<br/><i>Lambda Triggered</i>"]
+    end
+
+    %% Processing
+    subgraph processing ["⚙️ 2. Processing & Analysis Pipeline"]
+        C["🎭 Orchestration<br/><i>AWS Step Functions</i>"]
+        D["🧬 Genomic Processing<br/><i>Lambda: Mutation Extraction</i>"]
+        E["🔍 Unsupervised Clustering<br/><i>Lambda: HDBSCAN</i>"]
+        F["🤖 AI-Powered Risk Assessment<br/><i>Lambda + Amazon Bedrock</i>"]
+    end
+
+    %% Storage
+    subgraph storage ["💾 3. Storage"]
+        G["🗃️ Variant & Mutation Data<br/><i>Amazon DynamoDB</i>"]
+    end
+
+    %% Alerting
+    subgraph alerting ["🚨 4. Alerting & Reporting"]
+        H{"⚖️ Risk-Based Alerting<br/><i>Step Functions Choice State</i>"}
+        I["📋 WHO Report Generation<br/><i>Lambda</i>"]
+        J["📢 Multi-Channel Dispatch<br/><i>Lambda to SNS Topics</i>"]
+    end
+
+    %% Presentation
+    subgraph presentation ["📊 5. Presentation"]
+        K["🌐 Public Dashboard<br/><i>Hosted on S3</i>"]
+        L["🔌 Live API<br/><i>API Gateway + Lambda</i>"]
+    end
+
+    %% Flow connections
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    
+    D --> G
+    E --> G
+    F --> G
+    
+    F --> H
+    H -->|"High Risk"| I
+    H -->|"Medium Risk"| J
+    I --> J
+    
+    G --> L
+    G -.-> K
+
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef processing fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
+    classDef storage fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#fff
+    classDef alert fill:#F44336,stroke:#C62828,stroke-width:2px,color:#fff
+    
+    class B,C,I,J aws
+    class D,E,F processing
+    class G storage
+    class H alert

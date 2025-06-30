@@ -1,0 +1,339 @@
+{
+  "OutScanLambdaExecutionPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream", 
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ],
+        "Resource": [
+          "arn:aws:s3:::outscan-genomic-data",
+          "arn:aws:s3:::outscan-genomic-data/*",
+          "arn:aws:s3:::outscan-analysis-results", 
+          "arn:aws:s3:::outscan-analysis-results/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ],
+        "Resource": [
+          "arn:aws:dynamodb:*:*:table/VariantClusters",
+          "arn:aws:dynamodb:*:*:table/VariantClusters/*",
+          "arn:aws:dynamodb:*:*:table/MutationLibrary",
+          "arn:aws:dynamodb:*:*:table/MutationLibrary/*",
+          "arn:aws:dynamodb:*:*:table/AlertHistory",
+          "arn:aws:dynamodb:*:*:table/AlertHistory/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "bedrock:InvokeModel"
+        ],
+        "Resource": [
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-sonnet-20250229-v1:0",
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20250307-v1:0"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sns:Publish"
+        ],
+        "Resource": [
+          "arn:aws:sns:*:*:outscan-who-alerts",
+          "arn:aws:sns:*:*:outscan-health-authorities",
+          "arn:aws:sns:*:*:outscan-research-alerts",
+          "arn:aws:sns:*:*:outscan-public-alerts"
+        ]
+      }
+    ]
+  },
+  
+  "OutScanStepFunctionsPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "lambda:InvokeFunction"
+        ],
+        "Resource": [
+          "arn:aws:lambda:*:*:function:OutScan-*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "states:StartExecution",
+          "states:DescribeExecution",
+          "states:StopExecution"
+        ],
+        "Resource": [
+          "arn:aws:states:*:*:stateMachine:VariantAnalysisWorkflow",
+          "arn:aws:states:*:*:execution:VariantAnalysisWorkflow:*"
+        ]
+      }
+    ]
+  },
+  
+  "OutScanAPIGatewayPolicy": {
+    "Version": "2012-10-17", 
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "lambda:InvokeFunction"
+        ],
+        "Resource": [
+          "arn:aws:lambda:*:*:function:OutScan-GISAIDDownloaderFunction-*",
+          "arn:aws:lambda:*:*:function:OutScan-VariantQueryFunction-*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:*"
+      }
+    ]
+  },
+  
+  "OutScanDataScientistPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        "Resource": [
+          "arn:aws:s3:::outscan-analysis-results",
+          "arn:aws:s3:::outscan-analysis-results/*",
+          "arn:aws:s3:::outscan-public-data",
+          "arn:aws:s3:::outscan-public-data/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:GetItem"
+        ],
+        "Resource": [
+          "arn:aws:dynamodb:*:*:table/VariantClusters",
+          "arn:aws:dynamodb:*:*:table/VariantClusters/*",
+          "arn:aws:dynamodb:*:*:table/MutationLibrary",
+          "arn:aws:dynamodb:*:*:table/MutationLibrary/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "bedrock:InvokeModel"
+        ],
+        "Resource": [
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-sonnet-20250229-v1:0"
+        ]
+      },
+      {
+        "Effect": "Deny",
+        "Action": [
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem", 
+          "dynamodb:DeleteItem"
+        ],
+        "Resource": "*"
+      }
+    ]
+  },
+  
+  "OutScanHealthAuthorityPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::outscan-public-data/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:Query",
+          "dynamodb:GetItem"
+        ],
+        "Resource": [
+          "arn:aws:dynamodb:*:*:table/AlertHistory",
+          "arn:aws:dynamodb:*:*:table/AlertHistory/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sns:Subscribe",
+          "sns:Unsubscribe"
+        ],
+        "Resource": [
+          "arn:aws:sns:*:*:outscan-health-authorities",
+          "arn:aws:sns:*:*:outscan-public-alerts"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "apigateway:GET"
+        ],
+        "Resource": [
+          "arn:aws:apigateway:*::/restapis/*/resources/*/methods/GET"
+        ]
+      }
+    ]
+  },
+  
+  "OutScanPublicReadOnlyPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::outscan-public-data/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sns:Subscribe"
+        ],
+        "Resource": [
+          "arn:aws:sns:*:*:outscan-public-alerts"
+        ]
+      }
+    ]
+  },
+  
+  "OutScanCrossAccountAccessPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": [
+            "arn:aws:iam::WHO-ACCOUNT-ID:root",
+            "arn:aws:iam::CDC-ACCOUNT-ID:root",
+            "arn:aws:iam::ECDC-ACCOUNT-ID:root"
+          ]
+        },
+        "Action": [
+          "s3:GetObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::outscan-public-data/*"
+        ],
+        "Condition": {
+          "StringEquals": {
+            "s3:ExistingObjectTag/Classification": "Public"
+          }
+        }
+      },
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": [
+            "arn:aws:iam::WHO-ACCOUNT-ID:root"
+          ]
+        },
+        "Action": [
+          "dynamodb:Query"
+        ],
+        "Resource": [
+          "arn:aws:dynamodb:*:*:table/AlertHistory"
+        ],
+        "Condition": {
+          "StringEquals": {
+            "dynamodb:LeadingKeys": ["WHO-*"]
+          }
+        }
+      }
+    ]
+  },
+  
+  "OutScanKMSKeyPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "EnableOutScanServices",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": [
+            "lambda.amazonaws.com",
+            "s3.amazonaws.com",
+            "dynamodb.amazonaws.com",
+            "sns.amazonaws.com"
+          ]
+        },
+        "Action": [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:ReEncrypt*"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "EnableOutScanLambdaFunctions",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "*"
+        },
+        "Action": [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": [
+              "s3.*.amazonaws.com",
+              "dynamodb.*.amazonaws.com"
+            ]
+          },
+          "StringLike": {
+            "aws:userid": "*:OutScan-*"
+          }
+        }
+      }
+    ]
+  }
+} 
