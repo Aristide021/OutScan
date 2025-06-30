@@ -336,6 +336,107 @@ sequenceDiagram
 
 ---
 
+## 🔌 API Reference
+
+OutScan provides RESTful API endpoints for genomic data submission and variant queries. The API is deployed using AWS API Gateway with CORS support for web applications.
+
+**Base URL:** `https://l5d9m5sa8e.execute-api.us-east-1.amazonaws.com/prod`
+
+### Endpoints
+
+| Endpoint | Method | Description | Authentication | Rate Limit |
+|----------|--------|-------------|----------------|------------|
+| `/variants` | GET | Retrieve variant analysis data and system metrics | None | 1000 req/min |
+| `/genomic` | POST | Submit genomic sequences for analysis | API Key Required | 100 req/min |
+
+### GET /variants
+
+Retrieves current variant analysis data, system metrics, and processing statistics.
+
+**Sample Request:**
+```bash
+curl -X GET "https://l5d9m5sa8e.execute-api.us-east-1.amazonaws.com/prod/variants" \
+  -H "Content-Type: application/json"
+```
+
+**Sample Response:**
+```json
+{
+  "status": "operational",
+  "timestamp": "2025-06-30 23:15:42 UTC",
+  "sequences_analyzed": 124750,
+  "variants_detected": 16,
+  "active_alerts": 3,
+  "processing_rate_per_minute": 3050,
+  "daily_processing": [
+    {"date": "Jun 24", "count": 19200},
+    {"date": "Jun 25", "count": 20100},
+    {"date": "Jun 26", "count": 18800}
+  ],
+  "variant_prevalence": [
+    {"name": "XBB.1.5", "percentage": 34},
+    {"name": "BQ.1.1", "percentage": 25},
+    {"name": "XBB.2.3", "percentage": 18},
+    {"name": "BA.5", "percentage": 12},
+    {"name": "Others", "percentage": 11}
+  ],
+  "system_info": {
+    "uptime": "99.2%",
+    "avg_response_time": "123ms",
+    "total_countries": 47,
+    "accuracy_rate": "95.1%"
+  }
+}
+```
+
+### POST /genomic
+
+Submits genomic sequences for analysis. Sequences should be in FASTA format.
+
+**Authentication:** Requires API key in header: `X-API-Key: your-api-key`
+
+**Sample Request:**
+```bash
+curl -X POST "https://l5d9m5sa8e.execute-api.us-east-1.amazonaws.com/prod/genomic" \
+  -H "Content-Type: text/plain" \
+  -H "X-API-Key: your-api-key" \
+  -d ">sample_sequence_1
+ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
+>sample_sequence_2  
+GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"
+```
+
+**Sample Response:**
+```json
+{
+  "message": "Successfully processed genomic data",
+  "total_sequences": 2,
+  "valid_sequences": 2,
+  "uploaded_sequences": 2,
+  "s3_keys": [
+    "genomic-sequences/2025-06-30/sample_sequence_1.fasta",
+    "genomic-sequences/2025-06-30/sample_sequence_2.fasta"
+  ]
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Missing required environment variables"
+}
+```
+
+### Response Codes
+
+- `200 OK` - Request processed successfully
+- `400 Bad Request` - Invalid request format
+- `401 Unauthorized` - Missing or invalid API key
+- `429 Too Many Requests` - Rate limit exceeded
+- `500 Internal Server Error` - Server error
+
+---
+
 ## 📊 Impact & Business Value
 
 ### Quantifiable Advantages
@@ -428,6 +529,84 @@ OutScan/
 
 ---
 
+## 🔒 Security Considerations
+
+### Production Security Requirements
+
+OutScan includes comprehensive security configurations designed for production deployment. **For production environments, proper authentication and fine-grained IAM policies are essential.**
+
+### IAM Policy Configuration
+
+The system includes predefined IAM policies in [`infrastructure/iam_policies.json`](./infrastructure/iam_policies.json) with role-based access controls:
+
+- **OutScanLambdaExecutionPolicy**: Core Lambda functions with minimal required permissions
+- **OutScanDataScientistPolicy**: Read-only access for researchers with explicit write denials
+- **OutScanHealthAuthorityPolicy**: Limited access for health organizations with SNS subscription rights
+- **OutScanPublicReadOnlyPolicy**: Public dashboard access with restricted permissions
+- **OutScanCrossAccountAccessPolicy**: Secure multi-organization data sharing with WHO, CDC, ECDC
+
+### Security Best Practices
+
+#### 1. **Replace Placeholder Account IDs**
+```json
+// Update these placeholders in iam_policies.json
+"arn:aws:iam::WHO-ACCOUNT-ID:root"
+"arn:aws:iam::CDC-ACCOUNT-ID:root" 
+"arn:aws:iam::ECDC-ACCOUNT-ID:root"
+```
+
+#### 2. **API Key Management**
+- Generate unique API keys for each genomic data partner
+- Implement key rotation policies (recommended: 90 days)
+- Monitor API usage through CloudWatch metrics
+- Configure rate limiting per API key
+
+#### 3. **Data Encryption**
+- **At Rest**: KMS encryption for S3 buckets and DynamoDB tables
+- **In Transit**: TLS 1.2+ for all API communications
+- **Processing**: Encrypted Lambda environment variables
+
+#### 4. **Network Security**
+- VPC deployment for Lambda functions (optional but recommended)
+- Private subnets for sensitive processing workloads
+- VPC endpoints for AWS service communications
+
+#### 5. **Monitoring & Alerting**
+- CloudTrail logging for all API calls
+- CloudWatch alarms for unusual access patterns
+- SNS notifications for security events
+- Regular security audits through AWS Config
+
+### Compliance Considerations
+
+- **HIPAA**: Configure BAA agreements for health data processing
+- **GDPR**: Implement data retention policies and deletion workflows  
+- **SOC 2**: Regular penetration testing and vulnerability assessments
+- **ISO 27001**: Document security controls and incident response procedures
+
+### Development vs Production
+
+| Component | Development | Production |
+|-----------|-------------|------------|
+| API Authentication | Optional | **Required** |
+| IAM Policies | Broad permissions | **Least privilege** |
+| KMS Encryption | AWS Managed | **Customer managed keys** |
+| VPC Deployment | Public subnets | **Private subnets** |
+| Access Logging | Basic | **Comprehensive** |
+| Data Retention | 30 days | **Configurable (7 years)** |
+
+### Quick Security Checklist
+
+- [ ] Replace all placeholder account IDs in IAM policies
+- [ ] Generate and distribute API keys to authorized partners
+- [ ] Enable CloudTrail logging across all regions
+- [ ] Configure CloudWatch alarms for failed authentication attempts
+- [ ] Implement backup and disaster recovery procedures
+- [ ] Establish incident response protocols
+- [ ] Schedule regular security reviews
+
+---
+
 ## 📞 Support & Contact
 
 **Live Demo:** https://outscan-public-data-612613748659.s3.amazonaws.com/index.html  
@@ -441,4 +620,4 @@ OutScan/
 
 ---
 
-**OutScan: Detecting the next pandemic before it becomes unstoppable.** 
+**OutScan: Detecting the next pandemic before it becomes unstoppable.**
